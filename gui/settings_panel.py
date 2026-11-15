@@ -1,145 +1,129 @@
 """
-Settings window: change cursor speed and smoothing while the app runs.
+Settings window: change cursor speed, smoothing and active area while the app runs.
 """
 
-import tkinter as tk
 from tkinter import messagebox
 
+import customtkinter as ctk
+
 from core.config_manager import ConfigManager
+from gui import theme
 
 
-class SettingsPanel(tk.Toplevel):
+class SettingsPanel(ctk.CTkToplevel):
     def __init__(self, master, tracker):
         super().__init__(master)
-        self.title("Air Mouse Settings")
+        self.title("Settings")
+        self.geometry("420x480")
+        self.resizable(False, False)
+        self.configure(fg_color=theme.BG)
+        self.transient(master.winfo_toplevel())
+        self.after(200, self.bring_to_front)
+
         self.tracker = tracker
         self.settings = ConfigManager()
-        self.resizable(False, False)
         self.protocol("WM_DELETE_WINDOW", self.save_and_close)
 
-        cursor_speed = self.tracker.cursor_speed
-        smoothing = self.tracker.smoother.alpha
+        ctk.CTkLabel(
+            self, text="SETTINGS", font=theme.font(22, True), text_color=theme.ACCENT
+        ).pack(pady=(16, 8))
 
-        main_frame = tk.Frame(self, padx=20, pady=10)
-        main_frame.pack()
-
-        # Cursor speed
-        speed_frame = tk.LabelFrame(main_frame, text="Cursor Speed", padx=10, pady=10)
-        speed_frame.pack(fill="x", pady=10)
-
-        tk.Label(speed_frame, text="Slower <-> Faster").pack()
-        self.cursor_speed = tk.DoubleVar(value=cursor_speed)
-
-        speed_scale = tk.Scale(
-            speed_frame,
-            variable=self.cursor_speed,
-            from_=0.5,
-            to=3.0,
-            resolution=0.1,
-            orient="horizontal",
-            length=300,
-            command=self.update_cursor_speed
+        self.speed = self._slider_card(
+            "Cursor Speed", "Slower  <->  Faster",
+            0.5, 3.0, 25, self.tracker.cursor_speed, self.update_cursor_speed, "{:.1f}",
         )
-        speed_scale.pack(pady=5)
-
-        self.speed_value_label = tk.Label(speed_frame, text=f"Current: {cursor_speed:.1f}")
-        self.speed_value_label.pack()
-
-        # Smoothing
-        smooth_frame = tk.LabelFrame(main_frame, text="Smoothing Level", padx=10, pady=10)
-        smooth_frame.pack(fill="x", pady=10)
-
-        tk.Label(smooth_frame, text="Smoother <-> More Responsive").pack()
-        self.smooth_level = tk.DoubleVar(value=smoothing)
-
-        smooth_scale = tk.Scale(
-            smooth_frame,
-            variable=self.smooth_level,
-            from_=0.1,
-            to=0.9,
-            resolution=0.05,
-            orient="horizontal",
-            length=300,
-            command=self.update_smoothing
+        self.smooth = self._slider_card(
+            "Smoothing", "Smoother  <->  More responsive",
+            0.1, 0.9, 16, self.tracker.smoother.alpha, self.update_smoothing, "{:.2f}",
         )
-        smooth_scale.pack(pady=5)
-
-        self.smooth_value_label = tk.Label(smooth_frame, text=f"Current: {smoothing:.2f}")
-        self.smooth_value_label.pack()
-
-        # Tips
-        info_frame = tk.Frame(main_frame)
-        info_frame.pack(fill="x", pady=10)
-
-        info_text = (
-            "Tips:\n"
-            "- Higher speed = faster cursor\n"
-            "- Lower smoothing value = smoother movement\n"
-            "- Settings are saved when you close this window"
+        self.area = self._slider_card(
+            "Active Area", "Smaller box  <->  Whole camera view",
+            0.3, 1.0, 14, self.tracker.active_area, self.update_active_area, "{:.2f}",
         )
-        tk.Label(
-            info_frame,
-            text=info_text,
-            justify="left",
-            bg="#e8f4f8",
-            relief="sunken",
-            padx=10,
-            pady=10
-        ).pack(fill="x")
 
-        # Buttons
-        button_frame = tk.Frame(main_frame)
-        button_frame.pack(fill="x", pady=10)
+        buttons = ctk.CTkFrame(self, fg_color="transparent")
+        buttons.pack(fill="x", padx=20, pady=14)
 
-        tk.Button(
-            button_frame,
-            text="Reset to Defaults",
+        ctk.CTkButton(
+            buttons, text="Reset", height=40, corner_radius=12,
+            fg_color=theme.CARD_LIGHT, hover_color=theme.OFF,
             command=self.reset_to_defaults,
-            bg="#ff9800",
-            fg="white"
-        ).pack(side="left", padx=5)
+        ).pack(side="left", expand=True, fill="x", padx=(0, 6))
 
-        tk.Button(
-            button_frame,
-            text="Close",
+        ctk.CTkButton(
+            buttons, text="Save & Close", height=40, corner_radius=12,
+            fg_color=theme.ACCENT, hover_color=theme.ACCENT_DARK, text_color="#021419",
             command=self.save_and_close,
-            bg="#4CAF50",
-            fg="white"
-        ).pack(side="right", padx=5)
+        ).pack(side="left", expand=True, fill="x", padx=(6, 0))
+
+    def bring_to_front(self):
+        """Raise this window above the main window and give it focus."""
+        self.lift()
+        self.focus_force()
+
+    def _slider_card(self, title, hint, low, high, steps, value, command, fmt):
+        card = ctk.CTkFrame(self, fg_color=theme.CARD, corner_radius=16)
+        card.pack(fill="x", padx=20, pady=6)
+
+        top = ctk.CTkFrame(card, fg_color="transparent")
+        top.pack(fill="x", padx=16, pady=(12, 0))
+
+        ctk.CTkLabel(top, text=title, font=theme.font(15, True), text_color=theme.TEXT).pack(side="left")
+        value_label = ctk.CTkLabel(
+            top, text=fmt.format(value), font=theme.font(15, True), text_color=theme.ACCENT
+        )
+        value_label.pack(side="right")
+
+        ctk.CTkLabel(
+            card, text=hint, font=theme.font(11), text_color=theme.MUTED
+        ).pack(anchor="w", padx=16)
+
+        def on_change(v):
+            value_label.configure(text=fmt.format(v))
+            command(v)
+
+        slider = ctk.CTkSlider(
+            card, from_=low, to=high, number_of_steps=steps,
+            progress_color=theme.ACCENT, button_color=theme.ACCENT,
+            button_hover_color=theme.ACCENT_DARK, command=on_change,
+        )
+        slider.set(value)
+        slider.pack(fill="x", padx=16, pady=(8, 14))
+
+        return slider, value_label, fmt
 
     def update_cursor_speed(self, value):
-        """Apply a new cursor speed to the tracker right away."""
         speed = float(value)
         self.tracker.cursor_speed = speed
-        self.speed_value_label.config(text=f"Current: {speed:.1f}")
         self.settings.set("cursor", "speed", value=speed)
 
     def update_smoothing(self, value):
-        """Apply a new smoothing value to the tracker right away."""
         alpha = float(value)
         self.tracker.smoother.alpha = alpha
-        self.smooth_value_label.config(text=f"Current: {alpha:.2f}")
         self.settings.set("cursor", "smoothing", value=alpha)
 
+    def update_active_area(self, value):
+        area = float(value)
+        self.tracker.active_area = area
+        self.settings.set("cursor", "active_area", value=area)
+
     def reset_to_defaults(self):
-        """Reset the sliders, labels, tracker and saved file to the defaults."""
-        if not messagebox.askyesno(
-            "Reset Settings",
-            "Reset all settings to their defaults?"
-        ):
+        if not messagebox.askyesno("Reset Settings", "Reset all settings to their defaults?"):
             return
 
         self.settings.reset_to_defaults()
 
-        speed = self.settings.get("cursor", "speed")
-        alpha = self.settings.get("cursor", "smoothing")
-
-        self.cursor_speed.set(speed)
-        self.smooth_level.set(alpha)
-        self.update_cursor_speed(speed)
-        self.update_smoothing(alpha)
+        pairs = [
+            (self.speed, "speed", self.update_cursor_speed),
+            (self.smooth, "smoothing", self.update_smoothing),
+            (self.area, "active_area", self.update_active_area),
+        ]
+        for (slider, label, fmt), key, update in pairs:
+            value = self.settings.get("cursor", key)
+            slider.set(value)
+            label.configure(text=fmt.format(value))
+            update(value)
 
     def save_and_close(self):
-        """Save the settings to disk and close the window."""
         self.settings.save()
         self.destroy()

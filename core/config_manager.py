@@ -24,7 +24,8 @@ class ConfigManager:
         "cursor": {
             "speed": 1.5,
             "smoothing": 0.3,
-            "margin": 5
+            "margin": 5,
+            "active_area": 0.6
         },
         "gestures": {
             "pinch_threshold": 0.12,
